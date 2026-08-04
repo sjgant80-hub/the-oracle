@@ -3,7 +3,7 @@
 // space where naive forking clusters near the obvious and MISSES the good branch), holds them un-collapsed, resolves
 // which hold at the κ-gate, surfaces the best + the roads not taken — and NEVER collapses for you. Deterministic.
 import O from './oracle.mjs';
-const { KAPPA, GOLDEN, fork, naiveFork, coverage, resolve, surface, author, toRemember, defaultScorer, stanceAt } = O;
+const { KAPPA, GOLDEN, fork, naiveFork, coverage, resolve, surface, author, toRemember, defaultScorer, stanceAt, profile, h16 } = O;
 
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ FAIL ') + m); };
@@ -86,6 +86,45 @@ console.log('\n=== §7 · DETERMINISM + FUZZ ===');
   catch { threw = true; }
   ok(!threw, 'empty / zero / unknown / malformed input never throws');
   ok(typeof O.GUARDRAIL === 'string' && /does NOT decide|never/i.test(O.GUARDRAIL), 'the guardrail is present and honest — it holds, it does not decide');
+}
+
+console.log('\n=== §8 · BOUNDARY KILLS — every operator on the product surface is pinned exactly (witness) ===');
+{
+  // 8a · the κ-gate is ≥, not > — a branch scoring EXACTLY κ HOLDS (score >= KAPPA, never > KAPPA)
+  const gate = resolve(fork('gate', 1), () => KAPPA);
+  ok(gate[0].score === KAPPA && gate[0].holds === true, 'a branch scoring EXACTLY κ HOLDS — the resolve-gate is ≥ κ (score === κ ⇒ holds true), not > κ');
+
+  // 8b · h16 is checked against a fixed hash vector — the mixing loop bound is exact (i < len)
+  ok(h16('the oracle holds') === '96c6109f92e93878', 'h16 matches a fixed hash vector — the mixing loop consumes exactly len chars (i < len)');
+  ok(h16('') === '9e3779b9811c9dc5', 'h16 of the empty string is the pristine seed — the loop does NOT run once past the end (i < len, no phantom NaN char)');
+
+  // 8c · coverage guard is length < 2, not <= 2 — two branches return their real distance, not 0
+  const two = fork('two branches', 2);
+  ok(coverage(two) > 0 && Math.abs(coverage(two) - 1.4686972256877873) < 1e-9, 'coverage of exactly two branches is their real profile-distance (>0), not 0 — the empty-guard is length < 2, not <= 2');
+
+  // 8d · naiveFork returns exactly N branches — the loop bound is i < N, not i <= N
+  ok(naiveFork('n', 5, 7).length === 5 && naiveFork('n', 3, 1).length === 3, 'naiveFork returns exactly N branches — the loop bound is i < N (not i <= N, which would over-produce)');
+
+  // 8e · naiveFork produces its exact deterministic angle sequence — the LCG increment is +1013904223
+  const expectedNaive = [-10.44876640662551, 16.53973058797419, 4.499666653573513, 17.079258365556598, -18.026352990418673];
+  const gotNaive = naiveFork('grow the user base', 5, 7).map(x => x.angle);
+  ok(gotNaive.length === 5 && gotNaive.every((a, i) => Math.abs(a - expectedNaive[i]) < 1e-9), 'naiveFork produces its exact deterministic angle vector — the LCG advance is s*1664525 + 1013904223 (a flipped sign gives a different sequence)');
+
+  // 8f · profile horizon phase is +1.2 — profile(0).horizon = 0.5 + 0.5·sin(1.2), not sin(−1.2)
+  ok(Math.abs(profile(0).horizon - (0.5 + 0.5 * Math.sin(1.2))) < 1e-9, 'profile horizon carries phase +1.2 — profile(0).horizon = 0.5+0.5·sin(1.2) ≈ 0.966, not the flipped sin(−1.2) ≈ 0.034');
+
+  // 8g · fork PRESERVES a real decision — the null-guard is (dec == null), not (dec != null)
+  ok(fork('ship the pricing page', 1)[0].decision === 'ship the pricing page', 'a real decision is kept on the branch — the null-guard is dec == null (a non-null decision is NOT blanked to \'\')');
+  ok(fork('ship the pricing page', 1)[0].approach.includes('ship the pricing page'), 'the branch approach carries the real decision — it is `dec || \'this\'`, not `dec && \'this\'` (which would drop it to \'this\')');
+
+  // 8h · naiveFork approaches carry the real decision — dec = decision || '', not decision && ''
+  ok(naiveFork('grow the user base', 3, 7).every(x => x.approach.includes('grow the user base')), 'naiveFork approaches carry the real decision — dec = decision || \'\' (a flipped && would blank every approach)');
+
+  // 8i · author matches the branch by id with === — an unknown id fails, a real id collapses THAT branch
+  const sAuth = surface(resolve(fork('the choice', 4), defaultScorer));
+  const realId = [...sAuth.holds, ...sAuth.roadsNotTaken][0].id;
+  ok(author(sAuth, 'no-such-branch-id', 'me').ok === false, 'authoring an unknown branch id fails (no such branch) — the match is b.id === branchId, not !==');
+  ok(author(sAuth, realId, 'me').chosen.id === realId, 'authoring a real id collapses THAT exact branch — the find matches b.id === branchId, not the first non-match');
 }
 
 const done = fail === 0;

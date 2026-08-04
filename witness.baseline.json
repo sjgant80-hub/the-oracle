@@ -1,0 +1,17 @@
+[
+  {
+    "mutation": "< → <=",
+    "snippet": "export const KAPPA = 0.618033988749895;   // the resolve-gate (1/φ): score ≥ κ HOLDS, scor",
+    "reason": "The ` < ` is inside a source COMMENT (\"score < κ CLASHES\") on the KAPPA export line, not executable code — flipping it to ` <= ` changes no runtime behaviour. No test can kill a comment mutation."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "export function coverage(branches) { let m = Infinity; for (let i = 0; i < branches.length",
+    "reason": "This ` < ` is the OUTER loop bound `i < branches.length` in coverage(); with `i <= branches.length` the extra iteration i=length runs the inner loop `for(j=i+1=length+1; j<length)` whose body never executes, so coverage returns the identical value (verified 0.6726…==0.6726…). The two other `<` on this line (inner `j<length`, guard `length<2`) are REAL and are killed by §2 and §8c."
+  },
+  {
+    "mutation": "< → <=",
+    "snippet": "// ── 3 · WALK + 4 · RESOLVE — score each branch, then the κ-gate: ≥ κ HOLDS, < κ CLASHES.",
+    "reason": "The entire line is a source COMMENT (the section header for WALK+RESOLVE); the ` < ` in \"< κ CLASHES\" is descriptive text, not code — flipping to ` <= ` changes no runtime behaviour."
+  }
+]
